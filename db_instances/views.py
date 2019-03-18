@@ -4,6 +4,6 @@ from .tasks import add
 
 
 def index(request):
-    # result = add.delay(2, 2)
-    # print("CELERY TEST: ",result.get())
+    result = add.delay()
+    print("CELERY TEST: ",result.get())
     return HttpResponse("Instâncias.")
