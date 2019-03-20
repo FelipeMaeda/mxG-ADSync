@@ -4,3 +4,4 @@ celery==4.2.1
 django-celery-results==1.0.4
 django-celery-beat==1.4.0
 ldap3==2.5.2
+mysql-connector==2.1.6
