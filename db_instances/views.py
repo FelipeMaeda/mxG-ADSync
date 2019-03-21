@@ -7,9 +7,9 @@ import mysql.connector
 
 def index(request):
 
-    cnx = mysql.connector.connect(user='mxgateway', password='eipheiThohgai7IeQu5o',
-                              host='192.168.6.80',
-                              database='mxhero')
+    cnx = mysql.connector.connect(user='xxxxxxx', password='xxxxxxxxxxx',
+                              host='xxxxx',
+                              database='xxxxx')
     cnx.close()
     # result = add.delay()
     # print("CELERY TEST: ",result.get())
