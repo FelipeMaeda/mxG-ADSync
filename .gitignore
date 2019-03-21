@@ -1,4 +1,5 @@
 celerybeat.pid
+.env
 .venv
 .vscode
 *.sqlite3
