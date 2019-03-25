@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse
 from .tasks import add
 from ldap3 import Server, Connection, ALL, ALL_ATTRIBUTES, SUBTREE
@@ -6,17 +6,20 @@ import mysql.connector
 from mysql.connector import errorcode
 from decouple import config
 
+from .models import Credential
 
 
 def index(request):
+    db = get_object_or_404(Credential, name='MxGateway')
+
     query1 = ("SELECT domain, address, user, `password`, base, directory_type "
               "FROM domain_adldap")
     query2 = ("SELECT account, property_name, property_value "
               "FROM email_accounts_properties "
               "WHERE account = %s")
     try:
-        cnx = mysql.connector.connect(user='mxgateway', password='eipheiThohgai7IeQu5o',
-                                      host='192.168.6.80', database='mxhero')
+        cnx = mysql.connector.connect(user=db.user, password=db.password,
+                                      host=db.host, database=db.database)
         print('Connect to dabase successful')
 
         cursor = cnx.cursor(buffered=True)
@@ -52,8 +55,9 @@ def index(request):
             total_entries += len(conn.response)
             if total_entries > 0:
                 for entry in conn.response:
+                    print('ALL ATTRIBUTES: ', entry['attributes'], '\n')
                     emails = entry['attributes']['mail']
-                    for email in emails: 
+                    for email in emails:
                         account = email.split("@")[0]
                         print('ACCOUNT NAME: ', account)
                         cursor.execute(query2, (account,))
@@ -65,7 +69,7 @@ def index(request):
             else:
                 print('NO RESULTS FOR: ', domain)
             conn.unbind()
-            print('####### NEXT #######')
+            print('########## END OF DOMAIN ##########')
         except Exception as e:
             print("ERROR: ", domain, ' - ', e)
     cnx.close()
