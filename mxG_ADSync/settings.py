@@ -82,6 +82,14 @@ WSGI_APPLICATION = 'mxG_ADSync.wsgi.application'
 default_dburl = 'sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3')
 DATABASES = {
     'default': config('DATABASE_URL', default=default_dburl, cast=dburl),
+    # 'mxGateway': {
+    #     'ENGINE': 'django.db.backends.mysql',
+    #     'NAME': 'mxhero',
+    #     'USER': 'mxgateway',
+    #     'PASSWORD': 'eipheiThohgai7IeQu5o',
+    #     'HOST': '192.168.6.80',
+    #     'PORT': '3306',
+    # }
 }
 
 
