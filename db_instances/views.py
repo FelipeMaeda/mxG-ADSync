@@ -12,11 +12,18 @@ from .models import Credential
 def index(request):
     db = get_object_or_404(Credential, name='MxGateway')
 
-    query1 = '''
+    domain_ldap_q = '''
                 SELECT domain, address, user, `password`, base, directory_type 
-                FROM domain_adldap WHERE domain = 'inova.net'
-              '''
-    query2 = '''
+                FROM domain_adldap
+            '''
+
+    domain_ldap_props_q = '''
+                SELECT property_key 
+                FROM domain_adldap_properties 
+                WHERE domain = %s
+            '''
+
+    accounts_props_q = '''
                 SELECT account, property_name, property_value 
                 FROM email_accounts_properties 
                 WHERE account = %s 
@@ -37,10 +44,15 @@ def index(request):
             print(err)
 
     cursor = cnx.cursor(buffered=True)
-    cursor.execute(query1)
-    first_q = cursor.fetchall()
+    cursor.execute(domain_ldap_q)
+    domain_ldaps = cursor.fetchall()
 
-    for (domain, address, user, password, base, directory_type) in first_q:
+    for (domain, address, user, password, base, directory_type) in domain_ldaps:
+        cursor.execute(domain_ldap_props_q, (domain,))
+        domain_attr = cursor.fetchall()
+        attr = []
+        for (property_key) in domain_attr:
+            attr += property_key
         try:
             print('\nIN DOMAIN: ', domain)
             # in mxhero DB domain_aldap TABLE address is SEVER
@@ -51,11 +63,7 @@ def index(request):
             total_entries = 0
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
-            conn.search(BASE, '(objectclass=person)',
-                        attributes=['givenName', 'initials', 'displayName', 'sn', 'telephoneNumber',
-                                    'homePhone', 'mobile', 'pager', 'facsimileTelephoneNumber', 'company',
-                                    'title', 'mail', 'street', 'l', 'st', 'postalCode', 'co', 'description',
-                                    'zimbraNotes'])
+            conn.search(BASE, '(mail=*)', attributes=attr)
             print('RESULT: ', conn.result)
             total_entries += len(conn.response)
 
@@ -68,10 +76,10 @@ def index(request):
                         print('DOMAIN NAME: ', domain_ldap)
                         print('ACCOUNT NAME: ', account)
                         print('LDAP ATTRIBUTES: ', entry['attributes'])
-                        cursor.execute(query2, (account, domain_ldap))
-                        second_q = cursor.fetchall()
-                        if len(second_q) > 0:
-                            for (account, property_name, property_value) in second_q:
+                        cursor.execute(accounts_props_q, (account, domain_ldap))
+                        accounts_ldaps = cursor.fetchall()
+                        if len(accounts_ldaps) > 0:
+                            for (account, property_name, property_value) in accounts_ldaps:
                                 print('PROPERTY NAME: ',
                                       property_name, ' - PROPERTY VALUE: ', property_value)
                         else:
