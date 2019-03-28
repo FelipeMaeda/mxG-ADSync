@@ -33,6 +33,27 @@ def index(request):
                 GROUP BY eap.property_name;
             '''
 
+    update_or_create_q = '''
+                SET @account = 'leonardomarangoni.hotmail.com',
+                    @domain_id = 'inova.net',
+                    @property_name = 'city',
+                    @property_value = NULL;
+                INSERT INTO email_accounts_properties
+                    (account, domain_id, property_name, property_value)
+                VALUES
+                    (@account, @domain_id, @property_name, @property_value)
+                ON DUPLICATE KEY UPDATE
+                    account = @account,
+                    domain_id = @domain_id,
+                    property_name = @property_name,
+                    property_value = @property_value;
+
+                DELETE FROM email_accounts_properties 
+                WHERE account = 'leonardomarangoni.hotmail.com'
+                AND domain_id = 'inova.net'
+                AND property_value is NULL;
+            '''
+
     try:
         cnx = mysql.connector.connect(user=db.user, password=db.password,
                                       host=db.host, database=db.database)
@@ -69,7 +90,8 @@ def index(request):
             total_entries = 0
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
-            conn.search(BASE, '(mail=*)', attributes=ldap_attr)
+            conn.search(
+                BASE, '(mail=leonardomarangoni.hotmail.com@inova.net)', attributes=ldap_attr)
             print('RESULT: ', conn.result)
             total_entries += len(conn.response)
 
@@ -81,15 +103,17 @@ def index(request):
                         domain_ldap = email.split("@")[1]
                         print('DOMAIN NAME: ', domain_ldap)
                         print('ACCOUNT NAME: ', account)
-                        cursor.execute(accounts_props_q, (domain_ldap, account))
+                        cursor.execute(accounts_props_q,
+                                       (domain_ldap, account))
                         accounts_ldaps = cursor.fetchall()
                         if len(accounts_ldaps) > 0:
                             for item in entry['attributes']:
-                                print('ATT.: ',item , ': ', entry['attributes'][item])
+                                print('ATT.: ', item, ': ',
+                                      entry['attributes'][item])
                             for (account, property_key, property_name, property_value) in accounts_ldaps:
                                 print('ACCOUNT: ', account,
-                                      ' - PROPERTY KEY: ', property_key, 
-                                      ' - PROPERTY NAME: ', property_name, 
+                                      ' - PROPERTY KEY: ', property_key,
+                                      ' - PROPERTY NAME: ', property_name,
                                       ' - PROPERTY VALUE', property_value)
                         else:
                             print('MXGATEWAY PROPERTIES: NO RESULTS')
@@ -110,3 +134,50 @@ def index(request):
     return HttpResponse("Instâncias.")
 
 
+def second(request):
+
+    db = get_object_or_404(Credential, name='MxGateway')
+
+    delete = '''
+        DELETE FROM email_accounts_properties 
+        WHERE account = 'leonardomarangoni.hotmail.com' 
+        AND domain_id = 'inova.net' AND property_value is NULL;
+    '''
+
+    create_or_update = '''
+        INSERT INTO email_accounts_properties 
+        VALUES (%(account)s, %(domain)s, %(name)s, %(value)s) 
+        ON DUPLICATE KEY UPDATE 
+        account = %(account)s, 
+        domain_id = %(domain)s, 
+        property_name = %(name)s, 
+        property_value = %(value)s;
+    '''
+    data = {
+        'account': 'leonardomarangoni.hotmail.com',
+        'domain': 'inova.net',
+        'name': 'city',
+        'value': None,
+    }
+    try:
+        # connect to the database server
+        conn = mysql.connector.connect(user=db.user, password=db.password,
+                                       host=db.host, database=db.database)
+
+        print('\nConnect to dabase successful')
+        # execute the query
+        cursor = conn.cursor()
+        # cursor.execute(create_or_update, data)
+        cursor.execute(delete)
+
+        # accept the change
+        conn.commit()
+
+    except mysql.connector.Error as error:
+        print(error)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return HttpResponse("second.")
