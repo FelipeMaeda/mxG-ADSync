@@ -15,19 +15,22 @@ def index(request):
     domain_ldap_q = '''
                 SELECT domain, address, user, `password`, base, directory_type 
                 FROM domain_adldap
+                WHERE domain = 'inova.net'
             '''
 
     domain_ldap_props_q = '''
-                SELECT property_key 
+                SELECT property_key, property_name
                 FROM domain_adldap_properties 
                 WHERE domain = %s
             '''
 
     accounts_props_q = '''
-                SELECT account, property_name, property_value 
-                FROM email_accounts_properties 
-                WHERE account = %s 
-                AND domain_id = %s
+                SELECT eap.account, dlp.property_key, eap.property_name, eap.property_value  
+                FROM email_accounts_properties as eap
+                INNER JOIN domain_adldap_properties as dlp ON eap.property_name = dlp.property_name
+                WHERE eap.domain_id = %s
+                AND eap.account = %s
+                GROUP BY eap.property_name;
             '''
 
     try:
@@ -50,9 +53,12 @@ def index(request):
     for (domain, address, user, password, base, directory_type) in domain_ldaps:
         cursor.execute(domain_ldap_props_q, (domain,))
         domain_attr = cursor.fetchall()
-        attr = []
-        for (property_key) in domain_attr:
-            attr += property_key
+        ldap_attr = []
+        mxG_attr = []
+        for (property_key, property_name) in domain_attr:
+            print('LDAP DOMAIN ATT: ', property_key)
+            ldap_attr.append(property_key)
+            # mxG_attr += property_namek
         try:
             print('\nIN DOMAIN: ', domain)
             # in mxhero DB domain_aldap TABLE address is SEVER
@@ -63,7 +69,7 @@ def index(request):
             total_entries = 0
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
-            conn.search(BASE, '(mail=*)', attributes=attr)
+            conn.search(BASE, '(mail=*)', attributes=ldap_attr)
             print('RESULT: ', conn.result)
             total_entries += len(conn.response)
 
@@ -75,13 +81,11 @@ def index(request):
                         domain_ldap = email.split("@")[1]
                         print('DOMAIN NAME: ', domain_ldap)
                         print('ACCOUNT NAME: ', account)
-                        print('LDAP ATTRIBUTES: ', entry['attributes'])
-                        cursor.execute(accounts_props_q, (account, domain_ldap))
+                        cursor.execute(accounts_props_q, (domain_ldap, account))
                         accounts_ldaps = cursor.fetchall()
                         if len(accounts_ldaps) > 0:
-                            for (account, property_name, property_value) in accounts_ldaps:
-                                print('PROPERTY NAME: ',
-                                      property_name, ' - PROPERTY VALUE: ', property_value)
+                            for item in entry['attributes']:
+                                print('ATT.: ',item , ': ', entry['attributes'][item])
                         else:
                             print('MXGATEWAY PROPERTIES: NO RESULTS')
                     print('\n')
@@ -99,3 +103,30 @@ def index(request):
     # print("CELERY TEST: ",result.get())
 
     return HttpResponse("Instâncias.")
+
+
+# POSSIBLE SOLUTIONS:
+
+# UPDATE email_accounts_properties t1
+# JOIN domain_adldap_properties t2 ON t1.property_name = t2.property_name 
+# JOIN table3 t3 ON (t3.field1=t2.field2 AND t3.field3 IS NOT NULL) 
+# SET t1.field9=t3.field9
+# WHERE t1.field5=1
+# AND t1.field9 IS NULL
+
+# INSERT INTO table (key,col1) VALUES (1,2)
+#   ON DUPLICATE KEY UPDATE col1 = 2;
+
+# SET @account = 'leonardomarangoni.hotmail.com',
+#     @domain_id = 'inova.net',
+#     @property_name = 'displayname',
+#     @property_value = 'Leonardo';
+# INSERT INTO email_accounts_properties
+#     (account, domain_id, property_name, property_value)
+# VALUES
+#     (@account, @domain_id, @property_name, @property_value)
+# ON DUPLICATE KEY UPDATE
+#     account = @account,
+#     domain_id = @domain_id,
+#     property_name = @property_name,
+#     property_value = @property_value
