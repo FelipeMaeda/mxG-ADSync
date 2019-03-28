@@ -86,6 +86,11 @@ def index(request):
                         if len(accounts_ldaps) > 0:
                             for item in entry['attributes']:
                                 print('ATT.: ',item , ': ', entry['attributes'][item])
+                            for (account, property_key, property_name, property_value) in accounts_ldaps:
+                                print('ACCOUNT: ', account,
+                                      ' - PROPERTY KEY: ', property_key, 
+                                      ' - PROPERTY NAME: ', property_name, 
+                                      ' - PROPERTY VALUE', property_value)
                         else:
                             print('MXGATEWAY PROPERTIES: NO RESULTS')
                     print('\n')
@@ -105,28 +110,3 @@ def index(request):
     return HttpResponse("Instâncias.")
 
 
-# POSSIBLE SOLUTIONS:
-
-# UPDATE email_accounts_properties t1
-# JOIN domain_adldap_properties t2 ON t1.property_name = t2.property_name 
-# JOIN table3 t3 ON (t3.field1=t2.field2 AND t3.field3 IS NOT NULL) 
-# SET t1.field9=t3.field9
-# WHERE t1.field5=1
-# AND t1.field9 IS NULL
-
-# INSERT INTO table (key,col1) VALUES (1,2)
-#   ON DUPLICATE KEY UPDATE col1 = 2;
-
-# SET @account = 'leonardomarangoni.hotmail.com',
-#     @domain_id = 'inova.net',
-#     @property_name = 'displayname',
-#     @property_value = 'Leonardo';
-# INSERT INTO email_accounts_properties
-#     (account, domain_id, property_name, property_value)
-# VALUES
-#     (@account, @domain_id, @property_name, @property_value)
-# ON DUPLICATE KEY UPDATE
-#     account = @account,
-#     domain_id = @domain_id,
-#     property_name = @property_name,
-#     property_value = @property_value
