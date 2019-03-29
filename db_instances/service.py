@@ -12,7 +12,8 @@ def adsync():
 
     domain_ldap_q = '''
         SELECT domain, address, user, `password`, base 
-        FROM domain_adldap;
+        FROM domain_adldap 
+        WHERE domain = 'inova.net';
     '''
 
     domain_ldap_props_q = '''
@@ -22,12 +23,10 @@ def adsync():
     '''
 
     accounts_props_q = '''
-        SELECT eap.account, dlp.property_key, eap.property_name, eap.property_value  
-        FROM email_accounts_properties as eap 
-        INNER JOIN domain_adldap_properties as dlp ON eap.property_name = dlp.property_name 
-        WHERE eap.domain_id = %s 
-        AND eap.account = %s 
-        GROUP BY eap.property_name;
+		SELECT account 
+        FROM email_accounts_properties 
+        WHERE domain_id = %s 
+        AND account = %s 
     '''
 
     delete = '''
@@ -76,8 +75,6 @@ def adsync():
         for (property_key,) in domain_attr:
             ldap_attr.append(property_key)
 
-        print('LDAP DOMAIN ATT: ', ldap_attr)
-
         try:
             print('\nIN DOMAIN: ', domain)
             # in mxhero DB domain_aldap TABLE address is SEVER
@@ -89,8 +86,8 @@ def adsync():
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
             conn.search(
-                BASE, '(mail=*)', attributes=ldap_attr)
-            print('RESULT: ', conn.result)
+                BASE, '(mail=douglas.oliveira@inova.net)', attributes=ldap_attr)
+
             total_entries += len(conn.response)
 
             if total_entries > 0:
@@ -99,8 +96,6 @@ def adsync():
                     for email in emails:
                         account = email.split("@")[0]
                         domain_ldap = email.split("@")[1]
-                        print('DOMAIN NAME: ', domain_ldap)
-                        print('ACCOUNT NAME: ', account)
                         cursor.execute(accounts_props_q,
                                        (domain_ldap, account))
                         accounts_ldaps = cursor.fetchall()
@@ -111,10 +106,8 @@ def adsync():
                                 if len(entry['attributes'][item]) > 0:
                                     name = entry['attributes'][item]
                                     if isinstance(name, list):
-                                        print('ATT.: ', item, ':', name[0])
                                         cursor.execute(get_property_name,(domain_ldap, item))
                                         name_mx = cursor.fetchone()
-                                        print('ATT_MX.: ', item, ':', name_mx[0])
                                         data_l = {
                                             'account': account,
                                             'domain': domain_ldap,
@@ -125,10 +118,8 @@ def adsync():
                                         # accept the change
                                         cnx.commit()
                                     else:
-                                        print('ATT.: ', item, ':', name)
                                         cursor.execute(get_property_name,(domain_ldap, item))
                                         name_mx = cursor.fetchone()
-                                        print('ATT_MX.: ', item, ':', name_mx[0])
                                         data_s = {
                                             'account': account,
                                             'domain': domain_ldap,
@@ -139,7 +130,7 @@ def adsync():
                                         # accept the change
                                         cnx.commit()
                                 else:
-                                    print('ATT.: ', item, ': ', None)
+                                    
                                     cursor.execute(get_property_name,(domain_ldap, item))
                                     name_mx = cursor.fetchone()
                                     print('ATT_MX.: ', item, ':', name_mx[0])
@@ -156,12 +147,6 @@ def adsync():
                             # cleans NULL values from database
                             cursor.execute(delete, (account, domain_ldap))
                             cnx.commit()
-
-                            for (account, property_key, property_name, property_value) in accounts_ldaps:
-                                print('ACCOUNT: ', account,
-                                      ' - PROPERTY KEY: ', property_key,
-                                      ' - PROPERTY NAME: ', property_name,
-                                      ' - PROPERTY VALUE', property_value)
                         else:
                             print('MXGATEWAY PROPERTIES: NO RESULTS')
                     print('\n')
