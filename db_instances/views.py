@@ -3,7 +3,6 @@ from django.http import HttpResponse
 from .tasks import add
 from ldap3 import Server, Connection, ALL, ALL_ATTRIBUTES, SUBTREE
 import mysql.connector
-from mysql.connector import errorcode
 from decouple import config
 
 from .models import Credential
@@ -182,8 +181,4 @@ def index(request):
     cursor.close()
     cnx.close()
 
-    # result = add.delay()
-    # print("CELERY TEST: ",result.get())
-
-    return HttpResponse("Instâncias.")
-
+    return HttpResponse("second.")
