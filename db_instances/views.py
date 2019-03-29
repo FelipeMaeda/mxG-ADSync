@@ -15,43 +15,19 @@ def index(request):
     domain_ldap_q = '''
                 SELECT domain, address, user, `password`, base, directory_type 
                 FROM domain_adldap
-                WHERE domain = 'inova.net'
             '''
 
     domain_ldap_props_q = '''
-                SELECT property_key, property_name
+                SELECT property_key 
                 FROM domain_adldap_properties 
                 WHERE domain = %s
             '''
 
     accounts_props_q = '''
-                SELECT eap.account, dlp.property_key, eap.property_name, eap.property_value  
-                FROM email_accounts_properties as eap
-                INNER JOIN domain_adldap_properties as dlp ON eap.property_name = dlp.property_name
-                WHERE eap.domain_id = %s
-                AND eap.account = %s
-                GROUP BY eap.property_name;
-            '''
-
-    update_or_create_q = '''
-                SET @account = 'leonardomarangoni.hotmail.com',
-                    @domain_id = 'inova.net',
-                    @property_name = 'city',
-                    @property_value = NULL;
-                INSERT INTO email_accounts_properties
-                    (account, domain_id, property_name, property_value)
-                VALUES
-                    (@account, @domain_id, @property_name, @property_value)
-                ON DUPLICATE KEY UPDATE
-                    account = @account,
-                    domain_id = @domain_id,
-                    property_name = @property_name,
-                    property_value = @property_value;
-
-                DELETE FROM email_accounts_properties 
-                WHERE account = 'leonardomarangoni.hotmail.com'
-                AND domain_id = 'inova.net'
-                AND property_value is NULL;
+                SELECT account, property_name, property_value 
+                FROM email_accounts_properties 
+                WHERE account = %s 
+                AND domain_id = %s
             '''
 
     try:
@@ -89,8 +65,7 @@ def index(request):
             total_entries = 0
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
-            conn.search(
-                BASE, '(mail=leonardomarangoni.hotmail.com@inova.net)', attributes=ldap_attr)
+            conn.search(BASE, '(mail=*)', attributes=attr)
             print('RESULT: ', conn.result)
             total_entries += len(conn.response)
 
@@ -102,18 +77,13 @@ def index(request):
                         domain_ldap = email.split("@")[1]
                         print('DOMAIN NAME: ', domain_ldap)
                         print('ACCOUNT NAME: ', account)
-                        cursor.execute(accounts_props_q,
-                                       (domain_ldap, account))
+                        print('LDAP ATTRIBUTES: ', entry['attributes'])
+                        cursor.execute(accounts_props_q, (account, domain_ldap))
                         accounts_ldaps = cursor.fetchall()
                         if len(accounts_ldaps) > 0:
-                            for item in entry['attributes']:
-                                print('ATT.: ', item, ': ',
-                                      entry['attributes'][item])
-                            for (account, property_key, property_name, property_value) in accounts_ldaps:
-                                print('ACCOUNT: ', account,
-                                      ' - PROPERTY KEY: ', property_key,
-                                      ' - PROPERTY NAME: ', property_name,
-                                      ' - PROPERTY VALUE', property_value)
+                            for (account, property_name, property_value) in accounts_ldaps:
+                                print('PROPERTY NAME: ',
+                                      property_name, ' - PROPERTY VALUE: ', property_value)
                         else:
                             print('MXGATEWAY PROPERTIES: NO RESULTS')
                     print('\n')
