@@ -12,8 +12,7 @@ def adsync():
 
     domain_ldap_q = '''
         SELECT domain, address, user, `password`, base 
-        FROM domain_adldap 
-        WHERE domain = 'inova.net';
+        FROM domain_adldap;
     '''
 
     domain_ldap_props_q = '''
@@ -178,5 +177,5 @@ def adsync():
 
     cursor.close()
     cnx.close()
-    ok = 'ok'
+    ok = 'ADSYNC COMPLETE!'
     return ok
