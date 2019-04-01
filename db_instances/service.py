@@ -6,9 +6,10 @@ from decouple import config
 from .models import Credential
 
 
-def adsync():
+def adsync(db_id):
 
-    db = get_object_or_404(Credential, name='MxGateway')
+    db = get_object_or_404(Credential, pk=db_id)
+    print('DB: ', db)
 
     domain_ldap_q = '''
         SELECT domain, address, user, `password`, base 
