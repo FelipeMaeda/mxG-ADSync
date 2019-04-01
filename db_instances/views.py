@@ -10,7 +10,7 @@ from .models import Credential
 
 def index(request):
     dbs = Credential.objects.all()
-    db_selected = request.GET.get('b')
+    db_selected = request.GET.get('id')
     if db_selected != None:
         adsync_task.delay(db_selected)
     print('DB_ID: ', db_selected)
