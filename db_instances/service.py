@@ -6,9 +6,10 @@ from decouple import config
 from .models import Credential
 
 
-def adsync():
+def adsync(db_id):
 
-    db = get_object_or_404(Credential, name='MxGateway')
+    db = get_object_or_404(Credential, pk=db_id)
+    print('DB: ', db)
 
     domain_ldap_q = '''
         SELECT domain, address, user, `password`, base 
@@ -22,18 +23,15 @@ def adsync():
     '''
 
     accounts_props_q = '''
-        SELECT eap.account, dlp.property_key, eap.property_name, eap.property_value  
-        FROM email_accounts_properties as eap 
-        INNER JOIN domain_adldap_properties as dlp ON eap.property_name = dlp.property_name 
-        WHERE eap.domain_id = %s 
-        AND eap.account = %s 
-        GROUP BY eap.property_name;
+		SELECT account 
+        FROM email_accounts_properties 
+        WHERE domain_id = %s 
+        AND account = %s 
     '''
 
     delete = '''
         DELETE FROM email_accounts_properties 
-        WHERE account = %s 
-        AND domain_id = %s AND property_value is NULL;
+        WHERE property_value is NULL;
     '''
 
     create_or_update = '''
@@ -76,8 +74,6 @@ def adsync():
         for (property_key,) in domain_attr:
             ldap_attr.append(property_key)
 
-        print('LDAP DOMAIN ATT: ', ldap_attr)
-
         try:
             print('\nIN DOMAIN: ', domain)
             # in mxhero DB domain_aldap TABLE address is SEVER
@@ -90,59 +86,53 @@ def adsync():
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
             conn.search(
                 BASE, '(mail=*)', attributes=ldap_attr)
-            print('RESULT: ', conn.result)
+
             total_entries += len(conn.response)
 
             if total_entries > 0:
-                for entry in conn.response:
-                    emails = entry['attributes']['mail']
+                for entry in range(total_entries):
+                    emails = conn.response[entry]['attributes']['mail']
                     for email in emails:
                         account = email.split("@")[0]
                         domain_ldap = email.split("@")[1]
-                        print('DOMAIN NAME: ', domain_ldap)
-                        print('ACCOUNT NAME: ', account)
+                        print('ACCOUNT: ', account, ' - ', 'DOMAIN: ', domain_ldap)
                         cursor.execute(accounts_props_q,
                                        (domain_ldap, account))
                         accounts_ldaps = cursor.fetchall()
 
                         # check if mxGateway has account to be inserted or updated
                         if len(accounts_ldaps) > 0:
-                            for item in entry['attributes']:
-                                if len(entry['attributes'][item]) > 0:
-                                    name = entry['attributes'][item]
-                                    if isinstance(name, list):
-                                        print('ATT.: ', item, ':', name[0])
+                            for item in conn.response[entry]['attributes']:
+                                curr_item = conn.response[entry]['attributes'][item]
+                                if len(curr_item) > 0:
+                                    print('CURR: ', curr_item)
+                                    if isinstance(curr_item, list):
                                         cursor.execute(get_property_name,(domain_ldap, item))
                                         name_mx = cursor.fetchone()
-                                        print('ATT_MX.: ', item, ':', name_mx[0])
                                         data_l = {
                                             'account': account,
                                             'domain': domain_ldap,
                                             'name': name_mx[0],
-                                            'value': name[0],
+                                            'value': curr_item[0],
                                         }
                                         cursor.execute(create_or_update, data_l)
                                         # accept the change
                                         cnx.commit()
                                     else:
-                                        print('ATT.: ', item, ':', name)
                                         cursor.execute(get_property_name,(domain_ldap, item))
                                         name_mx = cursor.fetchone()
-                                        print('ATT_MX.: ', item, ':', name_mx[0])
                                         data_s = {
                                             'account': account,
                                             'domain': domain_ldap,
                                             'name': name_mx[0],
-                                            'value': name,
+                                            'value': curr_item,
                                         }
                                         cursor.execute(create_or_update, data_s)
                                         # accept the change
                                         cnx.commit()
                                 else:
-                                    print('ATT.: ', item, ': ', None)
                                     cursor.execute(get_property_name,(domain_ldap, item))
                                     name_mx = cursor.fetchone()
-                                    print('ATT_MX.: ', item, ':', name_mx[0])
                                     data_n = {
                                         'account': account,
                                         'domain': domain_ldap,
@@ -152,16 +142,6 @@ def adsync():
                                     cursor.execute(create_or_update, data_n)
                                     # accept the change
                                     cnx.commit()
-
-                            # cleans NULL values from database
-                            cursor.execute(delete, (account, domain_ldap))
-                            cnx.commit()
-
-                            for (account, property_key, property_name, property_value) in accounts_ldaps:
-                                print('ACCOUNT: ', account,
-                                      ' - PROPERTY KEY: ', property_key,
-                                      ' - PROPERTY NAME: ', property_name,
-                                      ' - PROPERTY VALUE', property_value)
                         else:
                             print('MXGATEWAY PROPERTIES: NO RESULTS')
                     print('\n')
@@ -174,7 +154,9 @@ def adsync():
 
         except Exception as e:
             print("ERROR: ", domain, ' - ', e)
-
+    # cleans NULL values from database
+    cursor.execute(delete)
+    cnx.commit()
     cursor.close()
     cnx.close()
     ok = 'ADSYNC COMPLETE!'
