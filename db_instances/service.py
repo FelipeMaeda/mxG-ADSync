@@ -84,6 +84,7 @@ def adsync(db_id):
             total_entries = 0
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
+            # TODO: Teste with fiter (objectclass=*)
             conn.search(
                 BASE, '(mail=*)', attributes=ldap_attr)
 
