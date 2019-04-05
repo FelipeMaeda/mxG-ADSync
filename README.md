@@ -1,4 +1,8 @@
-# Setup devlopment environment (First time)
+# mxG-ADSync
+
+ADSync-MxGateway is synchronize schedule of LDAP attributes with MxGateway system
+
+## Instalation
 
 ### Step 1
 - **Open a terminal window**:
@@ -28,39 +32,27 @@ cd ~/ADSynCode/mxG-ADSync
 source .venv/bin/activate
 python manage.py runserver
 ```
-# Continuos development
+## Usage
+- **Create a super user admin account**:
+In mxG-ADSync directory
 
-### Setup
+```python
+$ python manage.py createsuperuser
+```
+- **Login**:
+Now, open a Web browser and go to “/admin/” on your local domain – e.g., http://127.0.0.1:8000/admin/. You should see the admin’s login screen:
 
-- If you haven't installed RabbitMQ yet:
+<a href="https://docs.djangoproject.com/en/1.8/_images/admin01.png"><img src="https://docs.djangoproject.com/en/1.8/_images/admin01.png" title="Login" alt="Login"></a>
 
-> update and install this package first:
-```
-sudo apt-get install rabbitmq-server
-```
+<!-- [![FVCproductions](https://avatars1.githubusercontent.com/u/4284691?v=3&s=200)](http://fvcproductions.com) -->
 
-### Step 1
-- **Open a terminal window**:
-```
-cd ~/ADSynCode/mxG-ADSync
-source .venv/bin/activate
-pip install -r requirements.txt
-python manage.py makemigrations
-python manage.py migrate
-celery -A mxG_ADSync worker -l info
-```
-### Step 2
-- **Open other terminal window**:
-```
-cd ~/ADSynCode/mxG-ADSync
-source .venv/bin/activate
-celery -A mxG_ADSync beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-```
-### Step 3
-- **Open other terminal window**:
-```
-cd ~/ADSynCode/mxG-ADSync
-source .venv/bin/activate
-python manage.py runserver
-```
+- **Create a db isntance* in django admin*
+
+- **Create a periodic task in django admin**:
+In this section user has to pass name of db instance and domain name in periodic task arguments.
+
+## WARNING:
+
+> Is not recomended create periodic tasks with min of 5 minutes...
+
 
