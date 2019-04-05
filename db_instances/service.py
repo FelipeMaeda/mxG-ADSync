@@ -6,14 +6,15 @@ from decouple import config
 from .models import Credential
 
 
-def adsync(db_id):
+def adsync(db_name, from_domain):
 
-    db = get_object_or_404(Credential, pk=db_id)
+    db = get_object_or_404(Credential, name=db_name)
     print('DB: ', db)
 
     domain_ldap_q = '''
         SELECT domain, address, user, `password`, base 
-        FROM domain_adldap;
+        FROM domain_adldap 
+        WHERE domain = %s;
     '''
 
     domain_ldap_props_q = '''
@@ -64,7 +65,7 @@ def adsync(db_id):
     # execute the query
     cursor = cnx.cursor(buffered=True)
 
-    cursor.execute(domain_ldap_q)
+    cursor.execute(domain_ldap_q, (from_domain,))
     domain_ldaps = cursor.fetchall()
 
     for (domain, address, user, password, base) in domain_ldaps:
