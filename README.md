@@ -49,7 +49,7 @@ Now, open a Web browser and go to “/admin/” on your local domain – e.g., h
 - **Create a db isntance in django admin**
 
 - **Create a periodic task in django admin**:
-In this section user has to pass name of db instance and domain name in periodic task arguments.
+In this section user has to pass name of db instance and domain name in periodic task as arguments.
 
 ## WARNING:
 
