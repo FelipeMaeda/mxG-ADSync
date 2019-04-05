@@ -4,5 +4,5 @@ from .service import adsync
 
 
 @shared_task
-def adsync_task(db_id):
-    return adsync(db_id)
+def adsync_task(db_name, from_domain):
+    return adsync(db_name, from_domain)
