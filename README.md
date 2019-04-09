@@ -53,6 +53,6 @@ In this section user has to pass name of db instance and domain name in periodic
 
 ## WARNING:
 
-> Is not recomended create periodic tasks with less than of 5 minutes...
+> Is not recomended create periodic tasks with less than 5 minutes...
 
 
