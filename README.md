@@ -66,12 +66,12 @@ Now, open a Web browser and go to “/admin/” on your local domain – e.g., h
 - **Create a db isntance in django admin**
 
 - **Create a periodic task in django admin**:
-Set the task tha will be perfomed
+
+Set the task tha will be perfomed, set schedule and set the arguments.
 ```
 Task (custom):
 db_instances.tasks.adsync_task
 ```
-Set schedule
 ```
 Interval: every 5 minutes
 ```
@@ -79,11 +79,10 @@ Interval: every 5 minutes
 Start_time: today
             now
 ```            
-
-In this section user has to pass a array of string with two arguments, name of db instance and domain name in periodic task as arguments.
 ```
 Arguments: ["MxGateway", "inova.net"]
 ```
+
 Save
 
 ## WARNING:
