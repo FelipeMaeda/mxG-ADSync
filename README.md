@@ -13,6 +13,7 @@ What things you need to install the software and how to install them
 ### Instalation
 
 - **Open a terminal window**:
+* note.: can be multiple tabs in the same window
 ```
 mkdir ~/ADSynCode
 cd ~/ADSynCode
@@ -35,14 +36,14 @@ celery -A mxG_ADSync worker -l info
 ```
 
 ### Step 2
-- **Open other terminal window, can be multiple tabs in the same window**:
+- **Open other terminal window**:
 ```
 cd ~/ADSynCode/mxG-ADSync
 source .venv/bin/activate
 celery -A mxG_ADSync beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
 ```
 ### Step 3
-- **Open other terminal window, can be multiple tabs in the same window**:
+- **Open other terminal window**:
 ```
 cd ~/ADSynCode/mxG-ADSync
 source .venv/bin/activate
