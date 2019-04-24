@@ -26,7 +26,7 @@ python manage.py migrate
 ```
 
 ## Running
-Can be in multiples tabs in the same window.
+Below steps can be do it in multiples tabs in the same window.
 ### Step 1
 - **Open terminal window**
 ```
