@@ -1,6 +1,6 @@
 # mxG-ADSync
 
-mxG-ADSync is synchronize schedule LDAP attributes with MxGateway system
+mxG-ADSync is synchronization schedule LDAP attributes with MxGateway system.
 
 ## Getting Started
 
@@ -8,7 +8,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-What things you need to install the software and how to install them
+What things you need to install the software and how to install them.
 
 ### Instalation
 
@@ -26,7 +26,7 @@ python manage.py migrate
 ```
 
 ## Running
-can be in multiples tabs in the same window
+can be in multiples tabs in the same window.
 ### Step 1
 - **Open terminal window**
 ```
@@ -88,7 +88,7 @@ Start_time: today
 Arguments: ["MxGateway", "inova.net"]
 ```
 
-Save
+Save.
 
 ## WARNING:
 
