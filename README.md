@@ -69,23 +69,33 @@ Now, open a Web browser and go to “/admin/” on your local domain – e.g., h
 
 - **Create a credential in Db_Instances in django admin**: Set name and database credentials to do the syncronization with ldap attributes setting host, user, password and database.
 
+![README_04](https://user-images.githubusercontent.com/25668878/56668699-5d640e80-6686-11e9-8e03-82e58483c9a9.png)
+
 - **Create a periodic task in django admin**: Set the task tha will be perfomed, set schedule and set the arguments (credential name and domain) .
 ```
 Task (custom):
 db_instances.tasks.adsync_task
 ```
+
+![README_06](https://user-images.githubusercontent.com/25668878/56668670-4fae8900-6686-11e9-935d-a0ee773ec502.png)
+
 ```
 Interval: every 5 minutes
 ```
 ```
 Start_time: today
             now
-```            
+```
 ```
 Arguments: ["MxGateway", "inova.net"]
 ```
+![README_02](https://user-images.githubusercontent.com/25668878/56668682-550bd380-6686-11e9-9243-bd5fc81c60cd.png)
 
 Save.
+
+Your server screen has to seems like this:
+
+![README_05](https://user-images.githubusercontent.com/25668878/56668722-68b73a00-6686-11e9-8707-6b9cb8be36a9.png)
 
 ## WARNING:
 
