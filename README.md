@@ -12,8 +12,7 @@ What things you need to install the software and how to install them
 
 ### Instalation
 
-- **Open a terminal window**:
-* note.: can be multiple tabs in the same window
+- **Open a terminal window**: can be multiple tabs in the same window
 ```
 mkdir ~/ADSynCode
 cd ~/ADSynCode
