@@ -12,7 +12,7 @@ What things you need to install the software and how to install them
 
 ### Instalation
 
-- **Open a terminal window**: can be multiple tabs in the same window
+- **Open a terminal window**
 ```
 mkdir ~/ADSynCode
 cd ~/ADSynCode
@@ -26,6 +26,7 @@ python manage.py migrate
 ```
 
 ## Running
+can be multiple tabs in the same window
 ### Step 1
 - **Open terminal window**
 ```
