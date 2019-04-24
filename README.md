@@ -69,7 +69,7 @@ Now, open a Web browser and go to “/admin/” on your local domain – e.g., h
 
 - **Create a credential in Db_Instances in django admin**: Set name and database credentials to do the syncronization with ldap attributes setting host, user, password and database.
 
-- **Create a periodic task in django admin**: Set the task tha will be perfomed, set schedule and set the arguments.
+- **Create a periodic task in django admin**: Set the task tha will be perfomed, set schedule and set the arguments (credential name and domain) .
 ```
 Task (custom):
 db_instances.tasks.adsync_task
