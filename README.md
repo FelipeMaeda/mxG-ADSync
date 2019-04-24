@@ -1,6 +1,6 @@
 # mxG-ADSync
 
-mxG-ADSync is synchronize schedule of LDAP attributes with MxGateway system
+mxG-ADSync is synchronize schedule LDAP attributes with MxGateway system
 
 ## Getting Started
 
