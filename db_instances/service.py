@@ -69,17 +69,15 @@ def adsync(db_name, from_domain):
     except mysql.connector.Error as error:
         print(error)
 
-    # execute the query
+    # get ldap domain properties 
     cursor = cnx.cursor(buffered=True)
     cursor.execute(domain_ldap_q, (from_domain,))
     domain_ldaps = cursor.fetchall()
 
+    # connect to specific ldap domain
     for (domain, address, user, password, base) in domain_ldaps:
-
-        print('KEY: ', ldap_attrs)
         try:
             print('\nIN DOMAIN: ', domain)
-            # in mxhero DB domain_aldap TABLE address is SEVER
             SERVER = address
             USER = user
             PASSWORD = password
@@ -87,7 +85,7 @@ def adsync(db_name, from_domain):
             total_entries = 0
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
-            # TODO: Teste with fiter (objectclass=*)
+            # Set filters in searching ldpa
             conn.search(
                 BASE, '(mail=*)', attributes=ldap_attrs)
 
@@ -105,16 +103,10 @@ def adsync(db_name, from_domain):
                             cursor.execute(properties_mx_name, (ldap_attr,))
                             mx_prop = cursor.fetchone()
                             curr_item = conn.response[entry]['attributes'][ldap_attr]
-                        # check if mxGateway has account to be inserted or updated
-                        # if len(accounts_ldaps) > 0:
-                        # for item in conn.response[entry]['attributes']:
-                            # curr_item = conn.response[entry]['attributes'][item]
+                            # check if a especifc ldap attribute value is empty
                             if len(curr_item) > 0:
                                 print('CURR: ', curr_item)
                                 if isinstance(curr_item, list):
-                                    # cursor.execute(
-                                    #     get_property_name, (domain_ldap, item))
-                                    # name_mx = cursor.fetchone()
                                     data_l = {
                                         'account': account,
                                         'domain': domain_ldap,
@@ -127,9 +119,6 @@ def adsync(db_name, from_domain):
                                     # accept the change
                                     cnx.commit()
                                 else:
-                                    # cursor.execute(
-                                    #     get_property_name, (domain_ldap, item))
-                                    # name_mx = cursor.fetchone()
                                     data_s = {
                                         'account': account,
                                         'domain': domain_ldap,
@@ -142,9 +131,6 @@ def adsync(db_name, from_domain):
                                     # accept the change
                                     cnx.commit()
                             else:
-                                # cursor.execute(
-                                #     get_property_name, (domain_ldap, item))
-                                # name_mx = cursor.fetchone()
                                 data_n = {
                                     'account': account,
                                     'domain': domain_ldap,
@@ -155,15 +141,12 @@ def adsync(db_name, from_domain):
                                 cursor.execute(create_or_update, data_n)
                                 # accept the change
                                 cnx.commit()
-                        # else:
-                        #     print('MXGATEWAY PROPERTIES: NO RESULTS')
                     print('\n')
-
             else:
                 print('NO ENTRIES FOR: ', domain)
-            print('TOTAL: ', len(conn.response))
+            print('ACCOUNTS TOTAL: ', len(conn.response))
             conn.unbind()
-            print('########## END OF DOMAIN ##########')
+            print('########## DOMAIN END ##########')
 
         except Exception as e:
             print("ERROR: ", domain, ' - ', e)
