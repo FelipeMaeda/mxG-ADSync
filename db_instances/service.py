@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404
 from ldap3 import Server, Connection, ALL, ALL_ATTRIBUTES, SUBTREE
 import mysql.connector
 from decouple import config
-
+import datetime
 from .models import Credential
 
 
@@ -99,24 +99,29 @@ def adsync(db_name, from_domain):
             total_entries += len(conn.response)
 
             if total_entries > 0:
+                accounts_to_add = (domain,)
                 for entry in range(total_entries):
                     emails = conn.response[entry]['attributes']['mail']
                     for email in emails:
                         account = email.split("@")[0]
                         domain_ldap = email.split("@")[1]
-                        print('ACCOUNT: ', account)
+                        # print('ACCOUNT: ', account)
                         cursor.execute(search_account, (domain_ldap, account))
                         has_account = cursor.fetchone()
-                        # print("CHECK ACCOUNT: ", len(has_account))
-                        # if len(is_account) > 0:
+                        if has_account is None:
+                            date_time = datetime.datetime.now()
+                            data_source = 'adladp'
+                            group_name = None
+                            is_mail_list = 0
+                            accounts_to_add += (account, date_time, date_time, data_source, group_name, is_mail_list)
                         try:
                             for ldap_attr in ldap_attrs:
                                 print('LDAP ATT: ', ldap_attr)
-                                cursor.execute(properties_mx_name, (ldap_attr,))
+                                cursor.execute(
+                                    properties_mx_name, (ldap_attr,))
                                 mx_prop = cursor.fetchone()
                                 curr_item = conn.response[entry]['attributes'][ldap_attr]
                                 # check if a especifc ldap attribute value is empty
-                                # TODO: BY PASS WHEN THERE IS NO SPECIFIC ACCOUNT TO SPECIFIC DOMAIN
                                 if len(curr_item) > 0:
                                     print('CURR: ', curr_item)
                                     if isinstance(curr_item, list):
@@ -155,6 +160,8 @@ def adsync(db_name, from_domain):
                                     # accept the change
                                     cnx.commit()
                         except Exception as inst:
+                            # by passes create or update mysql method when there is no specific account
+                            # to especific domain in a database
                             print('ERROR ACC EMPTY: ', inst)
                             pass
                     print('\n')
@@ -162,6 +169,7 @@ def adsync(db_name, from_domain):
                 print('NO ENTRIES FOR: ', domain)
             print('ACCOUNTS TOTAL: ', len(conn.response))
             conn.unbind()
+            print('ACCOUNTS TO BE ADD: ', accounts_to_add)
             print('########## DOMAIN END ##########')
 
         except Exception as e:
