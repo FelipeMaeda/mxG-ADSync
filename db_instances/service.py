@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404
 from ldap3 import Server, Connection, ALL, ALL_ATTRIBUTES, SUBTREE
 import mysql.connector
 from decouple import config
-import datetime
+from datetime import datetime
 from .models import Credential
 
 
@@ -43,6 +43,25 @@ def adsync(db_name, from_domain):
         SELECT property_name FROM domain_adldap_properties 
         WHERE property_key = %s 
         GROUP BY property_name;
+    '''
+
+    insert_new_account = '''
+        INSERT INTO email_accounts(
+            account, 
+            domain_id, 
+            created, 
+            data_source, 
+            updated, 
+            group_name, 
+            is_mail_list) 
+        VALUES(
+            %(account)s, 
+            %(domain_id)s, 
+            %(created)s, 
+            %(data_source)s, 
+            %(updated)s, 
+            %(group_name)s, 
+            %(is_mail_list)s);
     '''
 
     ldap_attrs = [
@@ -99,7 +118,7 @@ def adsync(db_name, from_domain):
             total_entries += len(conn.response)
 
             if total_entries > 0:
-                accounts_to_add = (domain,)
+                acc_to_add = []
                 for entry in range(total_entries):
                     emails = conn.response[entry]['attributes']['mail']
                     for email in emails:
@@ -109,11 +128,21 @@ def adsync(db_name, from_domain):
                         cursor.execute(search_account, (domain_ldap, account))
                         has_account = cursor.fetchone()
                         if has_account is None:
-                            date_time = datetime.datetime.now()
-                            data_source = 'adladp'
-                            group_name = None
-                            is_mail_list = 0
-                            accounts_to_add += (account, date_time, date_time, data_source, group_name, is_mail_list)
+                            acc_to_add.append(account)
+                            now = datetime.now()
+                            formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
+                            new_account = {
+                                'account': account,
+                                'domain_id': domain_ldap,
+                                'created': formatted_date,
+                                'data_source': 'adladp',
+                                'updated': formatted_date,
+                                'group_name': None,
+                                'is_mail_list': 0,
+                            }
+                            cursor.execute(insert_new_account, new_account)
+                            # accept the change
+                            cnx.commit()
                         try:
                             for ldap_attr in ldap_attrs:
                                 print('LDAP ATT: ', ldap_attr)
@@ -167,9 +196,10 @@ def adsync(db_name, from_domain):
                     print('\n')
             else:
                 print('NO ENTRIES FOR: ', domain)
+
             print('ACCOUNTS TOTAL: ', len(conn.response))
             conn.unbind()
-            print('ACCOUNTS TO BE ADD: ', accounts_to_add)
+            print('ACCOUNTS INCLUDED: ', acc_to_add)
             print('########## DOMAIN END ##########')
 
         except Exception as e:
