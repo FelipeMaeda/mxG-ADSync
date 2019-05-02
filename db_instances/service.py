@@ -73,7 +73,13 @@ def adsync(db_name, from_domain):
             %(is_mail_list)s);
     '''
 
-    insert_new_account_alias = '''
+    delete_aliases = '''
+        DELETE FROM account_aliases 
+        WHERE domain_id = %s 
+        AND account = %s;
+    '''
+
+    insert_account_alias = '''
         INSERT INTO account_aliases(
             account_alias, 
             domain_alias, 
@@ -154,6 +160,7 @@ def adsync(db_name, from_domain):
                     account = emails[0].split("@")[0]
                     cursor.execute(search_account, (domain, account))
                     has_account = cursor.fetchone()
+
                     # add new account
                     if has_account is None:
                         acc_added.append(account)
@@ -172,46 +179,30 @@ def adsync(db_name, from_domain):
                         # accept the change
                         cnx.commit()
 
-                        new_account_alias = {
-                            'account_alias': account,
-                            'domain_alias': domain,
+                    # cleans aliases in specific account
+                    cursor.execute(delete_aliases, (domain, account))
+                    # accept the change
+                    cnx.commit()
+
+                    # adds aliases
+                    for email in emails:
+                        accountAlias = email.split("@")[0]
+                        domainAlias = email.split("@")[1]
+                        acc_alias_added.append(email)
+                        now = datetime.now()
+                        formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
+                        account_alias = {
+                            'account_alias': accountAlias,
+                            'domain_alias': domainAlias,
                             'created': formatted_date,
                             'data_source': 'adladp',
                             'account': account,
                             'domain_id': domain,
                         }
-                        cursor.execute(insert_new_account_alias, new_account_alias)
+                        cursor.execute(insert_account_alias, account_alias)
                         # accept the change
                         cnx.commit()
-                    # check if there are any aliases to add in specific account
-                    if len(emails) > 1:
-                        for email in emails[1:]:
-                            print('EMAIL: ', email)
-                            accountAlias = email.split("@")[0]
-                            domainAlias = email.split("@")[1]
-                            accounts_alias = {
-                                'account_alias': accountAlias,
-                                'domain_alias': domainAlias,
-                                'account': account,
-                                'domain_id': domain,
-                            }
-                            cursor.execute(search_account_alias, accounts_alias)
-                            has_account_alias = cursor.fetchone()
-                            if has_account_alias is None:
-                                acc_alias_added.append(accountAlias)
-                                now = datetime.now()
-                                formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
-                                add_account_alias = {
-                                    'account_alias': accountAlias,
-                                    'domain_alias': domainAlias,
-                                    'created': formatted_date,
-                                    'data_source': 'adladp',
-                                    'account': account,
-                                    'domain_id': domain,
-                                }
-                                cursor.execute(insert_new_account_alias, add_account_alias)
-                                # accept the change
-                                cnx.commit()
+                        print('EMAIL: ', email)
                     try:
                         for ldap_attr in ldap_attrs:
                             print('LDAP ATT: ', ldap_attr)
@@ -274,7 +265,7 @@ def adsync(db_name, from_domain):
 
         except Exception as e:
             print("ERROR: ", domain, ' - ', e)
-        # cleans NULL values from database
+        # cleans (ldpa NULL values from database) add closes conections
         finally:
             cursor.execute(delete)
             cnx.commit()
