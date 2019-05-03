@@ -24,15 +24,6 @@ def adsync(db_name, from_domain):
         AND account = %s;
     '''
 
-    search_account_alias = '''
-        SELECT account_alias 
-        FROM account_aliases 
-        WHERE account_alias = %(account_alias)s 
-        AND domain_alias = %(domain_alias)s 
-        AND account = %(account)s 
-        AND domain_id = %(domain_id)s;
-    '''
-
     create_or_update = '''
         INSERT INTO email_accounts_properties 
         VALUES (%(account)s, %(domain)s, %(name)s, %(value)s) 
@@ -79,6 +70,24 @@ def adsync(db_name, from_domain):
         AND account = %s;
     '''
 
+    search_domain_aliases = '''
+        select alias from domains_aliases 
+        where domain = %s 
+        and alias = %s;
+    '''
+
+    insert_new_domain_alias = '''
+        INSERT INTO domains_aliases(
+            alias, 
+            created, 
+            domain) 
+        VALUES(
+            %(alias)s, 
+            %(created)s, 
+            %(domain)s);
+    '''
+
+
     insert_account_alias = '''
         INSERT INTO account_aliases(
             account_alias, 
@@ -94,6 +103,13 @@ def adsync(db_name, from_domain):
             %(data_source)s, 
             %(account)s, 
             %(domain_id)s);
+    '''
+
+    accounts_updated = '''
+        UPDATE email_accounts 
+        SET updated = %(updated)s 
+        WHERE domain_id = %(domain_id)s 
+        AND account = %(account)s;
     '''
 
     ldap_attrs = [
@@ -134,6 +150,8 @@ def adsync(db_name, from_domain):
 
     # connect to specific ldap domain
     for (domain, address, user, password, base) in domain_ldaps:
+        # add date creation acc from ldap atts
+        ldap_attrs.append('zimbraCreateTimestamp')
         try:
             print('\nIN DOMAIN: ', domain)
             SERVER = address
@@ -150,6 +168,8 @@ def adsync(db_name, from_domain):
             total_entries += len(conn.response)
 
             if total_entries > 0:
+                # removes date creation acc from ldap atts to sync with mxgateway
+                ldap_attrs.remove('zimbraCreateTimestamp')
                 acc_added = []
                 acc_alias_added = []
                 for entry in range(total_entries):
@@ -163,13 +183,16 @@ def adsync(db_name, from_domain):
 
                     # add new account
                     if has_account is None:
+                        print('ADD ACC')
                         acc_added.append(account)
+                        created_date = conn.response[entry]['attributes']['zimbraCreateTimestamp']
+                        formatted_created_at = created_date.strftime("%Y-%m-%d %H:%M:%S")
                         now = datetime.now()
                         formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
                         new_account = {
                             'account': account,
                             'domain_id': domain,
-                            'created': formatted_date,
+                            'created': formatted_created_at,
                             'data_source': 'adladp',
                             'updated': formatted_date,
                             'group_name': None,
@@ -179,31 +202,45 @@ def adsync(db_name, from_domain):
                         # accept the change
                         cnx.commit()
 
-                    # cleans aliases in specific account
-                    cursor.execute(delete_aliases, (domain, account))
-                    # accept the change
-                    cnx.commit()
-
-                    # adds aliases
-                    for email in emails:
-                        accountAlias = email.split("@")[0]
-                        domainAlias = email.split("@")[1]
-                        acc_alias_added.append(email)
-                        now = datetime.now()
-                        formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
-                        account_alias = {
-                            'account_alias': accountAlias,
-                            'domain_alias': domainAlias,
-                            'created': formatted_date,
-                            'data_source': 'adladp',
-                            'account': account,
-                            'domain_id': domain,
-                        }
-                        cursor.execute(insert_account_alias, account_alias)
+                    try:
+                        # cleans aliases in specific account
+                        cursor.execute(delete_aliases, (domain, account))
                         # accept the change
                         cnx.commit()
-                        print('EMAIL: ', email)
-                    try:
+
+                        # adds aliases
+                        for email in emails:
+                            print('SYNCING...')
+                            now = datetime.now()
+                            formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
+                            accountAlias = email.split("@")[0]
+                            domainAlias = email.split("@")[1]
+                            # add domain alias if there is not created in mxgateway database yet
+                            cursor.execute(search_domain_aliases, (domain, domainAlias))
+                            has_domain = cursor.fetchone()
+                            if has_domain is None:
+                                domain_alias = {
+                                    'alias': domainAlias,
+                                    'created': formatted_date,
+                                    'domain': domain,
+                                }
+                                cursor.execute(insert_new_domain_alias, domain_alias)
+                                # accept the change
+                                cnx.commit()
+
+                            acc_alias_added.append(accountAlias)
+                            account_alias = {
+                                'account_alias': accountAlias,
+                                'domain_alias': domainAlias,
+                                'created': formatted_date,
+                                'data_source': 'adladp',
+                                'account': account,
+                                'domain_id': domain,
+                            }
+                            cursor.execute(insert_account_alias, account_alias)
+                            # accept the change
+                            cnx.commit()
+                            print('EMAIL: ', email)
                         for ldap_attr in ldap_attrs:
                             print('LDAP ATT: ', ldap_attr)
                             cursor.execute(
@@ -253,6 +290,20 @@ def adsync(db_name, from_domain):
                         # to especific domain in a database
                         print('ERROR ACC EMPTY: ', inst)
                         pass
+
+                    # sets updation date in all email accounts on synchronizations end
+                    print('UPDATING...')
+                    at = datetime.now()
+                    updated_at = at.strftime('%Y-%m-%d %H:%M:%S')
+                    updated_acc_sync = {
+                        'updated': updated_at,
+                        'domain_id': domain,
+                        'account': account,
+                    }
+                    cursor.execute(accounts_updated, updated_acc_sync)
+                    # accept the change
+                    cnx.commit()
+                    print('ACCs UPDATED AT: ', updated_at)
                     print('\n')
             else:
                 print('NO ENTRIES FOR: ', domain)
@@ -260,7 +311,7 @@ def adsync(db_name, from_domain):
             print('ACCOUNTS TOTAL: ', len(conn.response))
             conn.unbind()
             print('ACCOUNTS INCLUDED: ', acc_added)
-            print('ACCOUNTS ALIAS INCLUDED: ', acc_alias_added)
+            print('ACCOUNTS ALIAS UPDATED: ', acc_alias_added)
             print('########## DOMAIN END ##########')
 
         except Exception as e:
