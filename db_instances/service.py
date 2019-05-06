@@ -87,7 +87,6 @@ def adsync(db_name, from_domain):
             %(domain)s);
     '''
 
-
     insert_account_alias = '''
         INSERT INTO account_aliases(
             account_alias, 
@@ -172,12 +171,12 @@ def adsync(db_name, from_domain):
                 ldap_attrs.remove('zimbraCreateTimestamp')
                 acc_added = []
                 acc_alias_added = []
+                domain_alias_add = []
                 for entry in range(total_entries):
                     emails = conn.response[entry]['attributes']['mail']
-                    print('EMAILS: ', emails)
-                    print('ACCOUNT: ', emails[0])
-                    print('ALIASES: ', emails[:])
                     account = emails[0].split("@")[0]
+                    print('ACCOUNT: ', account)
+                    print('ALIASES: ', emails[:])
                     cursor.execute(search_account, (domain, account))
                     has_account = cursor.fetchone()
 
@@ -186,7 +185,14 @@ def adsync(db_name, from_domain):
                         print('ADD ACC')
                         acc_added.append(account)
                         created_date = conn.response[entry]['attributes']['zimbraCreateTimestamp']
-                        formatted_created_at = created_date.strftime("%Y-%m-%d %H:%M:%S")
+                        if isinstance(created_date, datetime):
+                            print('CREATED AT: ', created_date)
+                            formatted_created_at = created_date.strftime(
+                                "%Y-%m-%d %H:%M:%S")
+                        else:
+                            now = datetime.now()
+                            formatted_created_at = now.strftime(
+                                '%Y-%m-%d %H:%M:%S')
                         now = datetime.now()
                         formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
                         new_account = {
@@ -201,46 +207,9 @@ def adsync(db_name, from_domain):
                         cursor.execute(insert_new_account, new_account)
                         # accept the change
                         cnx.commit()
-
+                        print('ADD NEW ACCOUNT COMMITED')
                     try:
-                        # cleans aliases in specific account
-                        cursor.execute(delete_aliases, (domain, account))
-                        # accept the change
-                        cnx.commit()
-
-                        # adds aliases
-                        for email in emails:
-                            print('SYNCING...')
-                            now = datetime.now()
-                            formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
-                            accountAlias = email.split("@")[0]
-                            domainAlias = email.split("@")[1]
-                            # add domain alias if there is not created in mxgateway database yet
-                            cursor.execute(search_domain_aliases, (domain, domainAlias))
-                            has_domain = cursor.fetchone()
-                            if has_domain is None:
-                                domain_alias = {
-                                    'alias': domainAlias,
-                                    'created': formatted_date,
-                                    'domain': domain,
-                                }
-                                cursor.execute(insert_new_domain_alias, domain_alias)
-                                # accept the change
-                                cnx.commit()
-
-                            acc_alias_added.append(accountAlias)
-                            account_alias = {
-                                'account_alias': accountAlias,
-                                'domain_alias': domainAlias,
-                                'created': formatted_date,
-                                'data_source': 'adladp',
-                                'account': account,
-                                'domain_id': domain,
-                            }
-                            cursor.execute(insert_account_alias, account_alias)
-                            # accept the change
-                            cnx.commit()
-                            print('EMAIL: ', email)
+                        print("SYNCING LDAP ATT...")
                         for ldap_attr in ldap_attrs:
                             print('LDAP ATT: ', ldap_attr)
                             cursor.execute(
@@ -285,9 +254,50 @@ def adsync(db_name, from_domain):
                                 cursor.execute(create_or_update, data_n)
                                 # accept the change
                                 cnx.commit()
+
+                        print("UPDATING ALIASES...")
+                        # cleans aliases in specific account
+                        cursor.execute(delete_aliases, (domain, account))
+                        # accept the change
+                        cnx.commit()
+                        # adds aliases
+                        for email in emails:
+                            now = datetime.now()
+                            formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
+                            accountAlias = email.split("@")[0]
+                            domainAlias = email.split("@")[1]
+                            # add domain alias if there is not created in mxgateway database yet
+                            cursor.execute(search_domain_aliases,
+                                        (domain, domainAlias))
+                            has_domain_alias = cursor.fetchone()
+                            if has_domain_alias is None:
+                                domain_alias = {
+                                    'alias': domainAlias,
+                                    'created': formatted_date,
+                                    'domain': domain,
+                                }
+                                cursor.execute(
+                                    insert_new_domain_alias, domain_alias)
+                                # accept the change
+                                cnx.commit()
+                                print('ADD DOMAIN ALIAS COMMITED')
+                                domain_alias_add.append(domain_alias)
+                            account_alias = {
+                                'account_alias': accountAlias,
+                                'domain_alias': domainAlias,
+                                'created': formatted_date,
+                                'data_source': 'adladp',
+                                'account': account,
+                                'domain_id': domain,
+                            }
+                            print('ACC ALIAS DATA: ', account_alias)
+                            cursor.execute(insert_account_alias, account_alias)
+                            # accept the change
+                            cnx.commit()
+                            print('ADD ACC ALIAS COMMITED')
+                            acc_alias_added.append(accountAlias)
+                            print('EMAIL: ', email)
                     except Exception as inst:
-                        # by passes create or update mysql method when there is no specific account
-                        # to especific domain in a database
                         print('ERROR ACC EMPTY: ', inst)
                         pass
 
@@ -310,13 +320,15 @@ def adsync(db_name, from_domain):
 
             print('ACCOUNTS TOTAL: ', len(conn.response))
             conn.unbind()
+            print('DOMIANS ALIAS INCLUDED: ', domain_alias_add)
             print('ACCOUNTS INCLUDED: ', acc_added)
-            print('ACCOUNTS ALIAS UPDATED: ', acc_alias_added)
+            print('ACCOUNTS AND ALIAS UPDATED: ', acc_alias_added)
             print('########## DOMAIN END ##########')
 
         except Exception as e:
+            cnx.rollback()
             print("ERROR: ", domain, ' - ', e)
-        # cleans (ldpa NULL values from database) add closes conections
+        # cleans ldpa email accounts properties (NULL values) from database and closes conections
         finally:
             cursor.execute(delete)
             cnx.commit()
