@@ -130,7 +130,10 @@ def adsync(db_name, from_domain):
         'pager',
         'postalCode',
         'st',
-        'telephoneNumber']
+        'telephoneNumber',
+        'zimbraMailAlias',
+        'zimbraCreateTimestamp',
+        'zimbraMailDeliveryAddress']
 
     try:
         # connect to the database server
@@ -149,8 +152,6 @@ def adsync(db_name, from_domain):
 
     # connect to specific ldap domain
     for (domain, address, user, password, base) in domain_ldaps:
-        # add date creation acc from ldap atts
-        ldap_attrs.append('zimbraCreateTimestamp')
         try:
             print('\nIN DOMAIN: ', domain)
             SERVER = address
@@ -161,25 +162,31 @@ def adsync(db_name, from_domain):
             server = Server(SERVER, get_info=ALL)
             conn = Connection(server, USER, PASSWORD, auto_bind=True)
             # Set filters in searching ldpa
+            ldap_filter = '(zimbraMailDeliveryAddress=*@' + domain + ')'
+            print('FILTER: ', ldap_filter)
             conn.search(
-                BASE, '(mail=*)', attributes=ldap_attrs)
+                BASE, ldap_filter, attributes=ldap_attrs)
 
             total_entries += len(conn.response)
 
             if total_entries > 0:
-                # removes date creation acc from ldap atts to sync with mxgateway
+                # removes ldap atts. that aren't to sync with mxgateway
+                ldap_attrs.remove('zimbraMailAlias')
                 ldap_attrs.remove('zimbraCreateTimestamp')
+                ldap_attrs.remove('zimbraMailDeliveryAddress')
                 acc_added = []
                 acc_alias_added = []
                 domain_alias_add = []
                 for entry in range(total_entries):
                     emails = conn.response[entry]['attributes']['mail']
-                    account = emails[0].split("@")[0]
-                    print('ACCOUNT: ', account)
-                    print('ALIASES: ', emails[:])
+                    zimbra_alias = conn.response[entry]['attributes']['zimbraMailAlias']
+                    account_adress = conn.response[entry]['attributes']['zimbraMailDeliveryAddress'][0]
+                    account = account_adress.split('@')[0]
+                    # print('ATT: ', conn.response[entry])
+                    print('ACCOUNT: ', account_adress)
+                    print('ALIASES: ', zimbra_alias)
                     cursor.execute(search_account, (domain, account))
                     has_account = cursor.fetchone()
-
                     # add new account
                     if has_account is None:
                         print('ADD ACC')
@@ -208,9 +215,10 @@ def adsync(db_name, from_domain):
                         # accept the change
                         cnx.commit()
                         print('ADD NEW ACCOUNT COMMITED')
-                    try:
-                        print("SYNCING LDAP ATT...")
-                        for ldap_attr in ldap_attrs:
+
+                    print("SYNCING LDAP ATT...")
+                    for ldap_attr in ldap_attrs:
+                        try:
                             print('LDAP ATT: ', ldap_attr)
                             cursor.execute(
                                 properties_mx_name, (ldap_attr,))
@@ -220,17 +228,30 @@ def adsync(db_name, from_domain):
                             if len(ldap_prop) > 0:
                                 print('CURR ATT: ', ldap_prop)
                                 if isinstance(ldap_prop, list):
-                                    data_l = {
-                                        'account': account,
-                                        'domain': domain,
-                                        'name': mx_prop[0],
-                                        'value': ldap_prop[0],
-                                    }
-                                    print('DATA: ', data_l)
-                                    cursor.execute(
-                                        create_or_update, data_l)
-                                    # accept the change
-                                    cnx.commit()
+                                    if ldap_attr == 'mail':
+                                        data_mail = {
+                                            'account': account,
+                                            'domain': domain,
+                                            'name': mx_prop[0],
+                                            'value': account_adress,
+                                        }
+                                        print('DATA: ', data_mail)
+                                        cursor.execute(
+                                            create_or_update, data_mail)
+                                        # accept the change
+                                        cnx.commit()
+                                    else:
+                                        data_l = {
+                                            'account': account,
+                                            'domain': domain,
+                                            'name': mx_prop[0],
+                                            'value': ldap_prop[0],
+                                        }
+                                        print('DATA: ', data_l)
+                                        cursor.execute(
+                                            create_or_update, data_l)
+                                        # accept the change
+                                        cnx.commit()
                                 else:
                                     data_s = {
                                         'account': account,
@@ -254,14 +275,18 @@ def adsync(db_name, from_domain):
                                 cursor.execute(create_or_update, data_n)
                                 # accept the change
                                 cnx.commit()
+                        except Exception as inst:
+                            print('ERROR IN SYNCING LDAP ATTs: ', inst)
+                            continue
 
-                        print("UPDATING ALIASES...")
-                        # cleans aliases in specific account
-                        cursor.execute(delete_aliases, (domain, account))
-                        # accept the change
-                        cnx.commit()
-                        # adds aliases
-                        for email in emails:
+                    print("UPDATING ALIASES...")
+                    # cleans aliases in specific account
+                    cursor.execute(delete_aliases, (domain, account))
+                    # accept the change
+                    cnx.commit()
+                    # adds aliases
+                    for email in emails:
+                        try:
                             now = datetime.now()
                             formatted_date = now.strftime('%Y-%m-%d %H:%M:%S')
                             accountAlias = email.split("@")[0]
@@ -296,10 +321,9 @@ def adsync(db_name, from_domain):
                             cnx.commit()
                             print('ADD ACC ALIAS COMMITED')
                             acc_alias_added.append(accountAlias)
-                            print('EMAIL: ', email)
-                    except Exception as inst:
-                        print('ERROR ACC EMPTY: ', inst)
-                        pass
+                        except Exception as inst:
+                            print('ERROR IN INSERTING ALIAS: ', inst)
+                            continue
 
                     # sets updation date in all email accounts on synchronizations end
                     print('UPDATING...')
@@ -327,7 +351,7 @@ def adsync(db_name, from_domain):
 
         except Exception as e:
             cnx.rollback()
-            print("ERROR: ", domain, ' - ', e)
+            print("ERROR IN ENTRY: ", domain, ' - ', e)
         # cleans ldpa email accounts properties (NULL values) from database and closes conections
         finally:
             cursor.execute(delete)
