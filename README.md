@@ -5,7 +5,7 @@ mxG-ADSync is synchronization schedule LDAP attributes with MxGateway system.
 
 
 ## Getting Started
-Requirements: python 3.6 or above
+Requirements: python 3.6 or above and celery
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
 ### Prerequisites
